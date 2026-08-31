@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>JR offscreen</title></head>
+<body>
+<!-- 单一 offscreen document 承载两职（Chrome 限制：一扩展同一时间仅一个 offscreen document）：
+     ① 录音（audio-capture.js，S7.5） ② 导出组包（exporter.js，S8）。
+     相对路径相对 offscreen/ 解析，须加前导斜杠锚定扩展根（同 SW importScripts 的坑）。 -->
+<script src="/vendor/jszip.min.js"></script>
+<script src="/background/manifest-builder.js"></script>
+<script src="/background/pack-builder.js"></script>
+<script src="/background/resource-builder.js"></script>
+<script src="/offscreen/audio-capture.js"></script>
+<script src="/offscreen/exporter.js"></script>
+</body>
+</html>

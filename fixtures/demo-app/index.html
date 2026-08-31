@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Journey 夹具 · Demo App</title>
+<!-- S8 资源抓取测试：外链 CSS（含相对 url() 图片/字体） -->
+<link rel="stylesheet" href="css/app.css">
+<style>
+  :root { --line: #d8dce3; --brand: #2f5af5; }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.6 -apple-system, "PingFang SC", sans-serif; margin: 0; color: #222; }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--line); background: #f7f8fa; }
+  header h1 { font-size: 15px; margin: 0; }
+  nav a { margin-right: 12px; color: var(--brand); text-decoration: none; }
+  nav a.active { font-weight: 700; text-decoration: underline; }
+  #route-indicator { margin-left: auto; color: #888; font-size: 12px; }
+  main { padding: 20px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  button { padding: 7px 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; font-size: 13px; }
+  button:hover { border-color: var(--brand); color: var(--brand); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .55; cursor: wait; }
+  .form-row { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+  input[type=text], input[type=password] { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; width: 220px; }
+  select { padding: 6px; border: 1px solid var(--line); border-radius: 6px; }
+  ul#list { border: 1px dashed var(--line); border-radius: 6px; padding: 10px 10px 10px 28px; min-height: 60px; max-width: 560px; }
+  .note { color: #999; font-size: 12px; margin-top: 4px; }
+  #spinner-area { display: flex; align-items: center; gap: 10px; margin: 10px 0; color: #c60; }
+  .spin { width: 18px; height: 18px; border: 3px solid #eee; border-top-color: #c60; border-radius: 50%; animation: r .9s linear infinite; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  #jitter-area { border: 1px dashed #d06ab0; padding: 8px; max-width: 560px; min-height: 34px; margin-bottom: 16px; }
+  .sk { height: 12px; background: #eee; border-radius: 4px; margin: 4px 0; animation: p .8s ease-in-out infinite alternate; }
+  @keyframes p { from { opacity: .45; } to { opacity: 1; } }
+  #modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; }
+  #modal-mask[hidden] { display: none; }
+  .modal { background: #fff; border-radius: 10px; padding: 24px 32px; box-shadow: 0 12px 40px rgba(0,0,0,.2); }
+  table { border-collapse: collapse; }
+  td, th { border: 1px solid var(--line); padding: 6px 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏁 Journey 夹具 · Demo App</h1>
+  <span class="app-header">外链样式·logo</span>
+  <nav>
+    <a href="#page1" id="nav-page1">页面一</a>
+    <a href="#page2" id="nav-page2">页面二</a>
+  </nav>
+  <span id="route-indicator"></span>
+</header>
+
+<main>
+  <!-- ============ 页面一：核心控件 ============ -->
+  <section id="page1-view">
+    <div class="app-card app-icon-face">外链样式卡片（logo + 字体 + 圆角边框）</div>
+    <div class="toolbar">
+      <button id="btn-instant">添加一条记录</button>
+      <button id="btn-slow">查询慢接口 (2s)</button>
+      <button id="btn-hang">调挂起接口</button>
+      <button id="btn-nochange">无变化按钮</button>
+      <button id="btn-modal">打开弹窗</button>
+      <button id="btn-jitter">开始骨架屏抖动</button>
+      <button id="btn-mask-test">发脱敏测试请求</button>
+      <button id="btn-new-tab">新标签页打开编辑页</button>
+    </div>
+
+    <div class="form-row">
+      <input id="input-text" type="text" placeholder="普通文本输入框">
+      <input id="input-pwd" type="password" placeholder="密码输入框">
+    </div>
+    <div class="form-row">
+      <select id="select-demo">
+        <option value="">请选择环境</option>
+        <option value="test">测试环境</option>
+        <option value="prod">生产环境</option>
+      </select>
+      <label><input type="checkbox" id="cb-demo"> 启用高级行为</label>
+    </div>
+
+    <div id="spinner-area" hidden>
+      <span class="spin"></span>
+      <span>等待接口返回（此接口永不返回，用于测 settle_timeout）</span>
+      <button id="btn-abort">放弃等待</button>
+    </div>
+    <div id="jitter-area" hidden><div class="sk" style="width:80%"></div><div class="sk" style="width:60%"></div></div>
+
+    <ul id="list">
+      <li>初始条目 1</li>
+      <li>初始条目 2</li>
+    </ul>
+    <p class="note">夹具用途：验证 Journey Recorder 的锚定 / Settle / 截图 / rrweb / 接口轨迹。仅供本插件开发测试。</p>
+  </section>
+
+  <!-- ============ 页面二：hash 路由切出的"另一页" ============ -->
+  <section id="page2-view" hidden>
+    <h2>页面二：列表表格</h2>
+    <table>
+      <thead><tr><th>ID</th><th>名称</th><th>状态</th></tr></thead>
+      <tbody>
+        <tr><td>A-001</td><td>总部大纲详情页</td><td>已发布</td></tr>
+        <tr><td>A-002</td><td>新教师入门课</td><td>草稿</td></tr>
+        <tr><td>A-003</td><td>素养营地课</td><td>已发布</td></tr>
+      </tbody>
+    </table>
+    <p><button id="btn-page2-action">页面二操作按钮</button>（点击后无任何变化，nochange 场景）</p>
+  </section>
+</main>
+
+<!-- ============ 弹窗 ============ -->
+<div id="modal-mask" hidden>
+  <div class="modal">
+    <h3 style="margin-top:0">测试弹窗</h3>
+    <p>用于验证 modal_opened / modal_closed 场景与弹窗内点击。</p>
+    <button id="btn-modal-close">关闭弹窗</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var list = $('list');
+  var ts = function () { return new Date().toLocaleTimeString('zh-CN', { hour12: false }); };
+  var addItem = function (text) {
+    var li = document.createElement('li');
+    li.textContent = '[' + ts() + '] ' + text;
+    list.appendChild(li);
+  };
+
+  /* ---------- hash 路由（模拟 SPA 路由静止信号） ---------- */
+  function renderRoute() {
+    var h = location.hash || '#page1';
+    var isP1 = h === '#page1';
+    $('page1-view').hidden = !isP1;
+    $('page2-view').hidden = isP1;
+    $('nav-page1').classList.toggle('active', isP1);
+    $('nav-page2').classList.toggle('active', !isP1);
+    $('route-indicator').textContent = '当前路由: ' + h;
+  }
+  window.addEventListener('hashchange', renderRoute);
+  renderRoute();
+
+  /* ---------- 立即变化（S5 路径①：普通 ~300ms 内稳定） ---------- */
+  var seq = 3;
+  $('btn-instant').addEventListener('click', function () {
+    addItem('同步添加的记录 #' + (seq++));
+  });
+
+  /* ---------- 慢接口（S5 路径②：等网络返回渲染后再取证） ---------- */
+  $('btn-slow').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true;
+    var old = btn.textContent;
+    btn.textContent = '请求中…';
+    fetch('/slow-api?delay=2000')
+      .then(function (r) { return r.json(); })
+      .then(function (d) { addItem('慢接口返回: ' + d.data + ' (delay ' + d.costMs + 'ms)'); })
+      .catch(function (e) { addItem('慢接口失败: ' + e.message); })
+      .finally(function () { btn.disabled = false; btn.textContent = old; });
+  });
+
+  /* ---------- 挂起接口（S5 路径③：永不返回 → 10s 兜底 settle_timeout） ---------- */
+  var hangCtl = null;
+  $('btn-hang').addEventListener('click', function () {
+    if (hangCtl) return; // 已有挂起请求，忽略重复点击
+    hangCtl = new AbortController();
+    $('spinner-area').hidden = false;
+    fetch('/hang-api', { signal: hangCtl.signal })
+      .then(function (r) { return r.text(); })
+      .then(function () { addItem('挂起接口居然返回了'); })
+      .catch(function (e) {
+        if (e.name === 'AbortError') addItem('已放弃等待挂起接口 (AbortError)');
+        else addItem('挂起接口异常: ' + e.message);
+      })
+      .finally(function () { hangCtl = null; $('spinner-area').hidden = true; });
+  });
+  $('btn-abort').addEventListener('click', function () { if (hangCtl) hangCtl.abort(); });
+
+  /* ---------- 无变化（F2：click 无 DOM/URL/请求变化 → nochange 标签） ---------- */
+  $('btn-nochange').addEventListener('click', function () { console.log('[demo] clicked nochange button'); });
+  $('btn-page2-action').addEventListener('click', function () { console.log('[demo] clicked page2 action'); });
+
+  /* ---------- 弹窗（modal_opened / modal_closed 场景） ---------- */
+  $('btn-modal').addEventListener('click', function () { $('modal-mask').hidden = false; });
+  $('btn-modal-close').addEventListener('click', function () { $('modal-mask').hidden = true; });
+  $('modal-mask').addEventListener('click', function (e) { if (e.target === this) this.hidden = true; });
+
+  /* ---------- 持续 DOM 变更（S5 路径④补充：骨架屏持续 mutation，验证 DOM 静默信号） ---------- */
+  var jitterTimer = null;
+  $('btn-jitter').addEventListener('click', function () {
+    var area = $('jitter-area');
+    if (jitterTimer) {
+      clearInterval(jitterTimer); jitterTimer = null;
+      area.hidden = true; this.textContent = '开始骨架屏抖动';
+      return;
+    }
+    area.hidden = false; area.innerHTML = '';
+    this.textContent = '停止骨架屏抖动';
+    var i = 0;
+    jitterTimer = setInterval(function () {
+      var sk = document.createElement('div');
+      sk.className = 'sk';
+      sk.style.width = (40 + (i++ % 6) * 10) + '%';
+      area.insertBefore(sk, area.firstChild);
+      while (area.children.length > 4) area.removeChild(area.lastChild);
+    }, 250);
+  });
+
+  /* ---------- S7.1 tab 链：window.open 开新标签页（openerTabId 保留 → 插件自动纳入） ---------- */
+  $('btn-new-tab').addEventListener('click', function () {
+    window.open('/edit.html', '_blank');
+  });
+
+  /* ---------- S4 脱敏测试：伪造带 token 的头/体/URL（明文只存在于点击瞬间的请求里） ---------- */
+  $('btn-mask-test').addEventListener('click', function () {
+    var fakeJwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZW1vIn0.QWJjRGVmR2hp';
+    fetch('/echo-api?biz_id=42&access_token=' + fakeJwt, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'beibotoken': fakeJwt,
+        'x-custom-secret': 'should-not-appear',
+      },
+      body: JSON.stringify({
+        username: 'amos',
+        password: 'supersecret',
+        nested: { apiKey: 'k-123', tags: ['a', 'b'] },
+        items: [{ secretKey: 's-9' }],
+      }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { addItem('脱敏测试返回: ' + d.echo); })
+      .catch(function (e) { addItem('脱敏测试失败: ' + e.message); });
+  });
+})();
+</script>
+</body>
+</html>

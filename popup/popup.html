@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { width: 280px; margin: 0; font: 13px/1.5 -apple-system, "PingFang SC", sans-serif; color: #222; }
+    header { padding: 12px 14px 8px; border-bottom: 1px solid #ececf0; display: flex; justify-content: space-between; align-items: baseline; }
+    header h1 { margin: 0; font-size: 14px; }
+    header .sub { color: #999; font-size: 11px; }
+    main { padding: 12px 14px 14px; }
+    #btn-record {
+      width: 100%; padding: 9px 0; font-size: 14px; font-weight: 600;
+      border: 0; border-radius: 8px; cursor: pointer;
+      background: #e5484d; color: #fff;
+    }
+    #btn-record.recording { background: #333; }
+    #btn-record:disabled { background: #c8c8ce; cursor: wait; }
+    .stats { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; color: #666; }
+    .stats .badge { font-variant-numeric: tabular-nums; color: #222; font-weight: 600; }
+    #duration { font-variant-numeric: tabular-nums; color: #222; }
+    .mic-toggle { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+    #stale-bar { margin: 0 0 10px; padding: 8px 10px; background: #fff4e5; border: 1px solid #f0c48c; border-radius: 8px; font-size: 12px; color: #8a5a00; }
+    #stale-bar button { float: right; border: 0; background: none; color: #8a5a00; cursor: pointer; font-weight: 700; }
+    #error-msg { margin: 8px 0 0; color: #c22; font-size: 12px; min-height: 1em; }
+    .hint { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid #ececf0; color: #999; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Journey Recorder</h1>
+    <span class="sub">v0.1.0 · S8</span>
+  </header>
+  <main>
+    <div id="stale-bar" hidden>
+      <span id="stale-text"></span>
+      <button id="btn-ack-stale">知道了</button>
+    </div>
+    <button id="btn-record" disabled>加载中…</button>
+    <button id="btn-manual-anchor" disabled style="width:100%; margin-top:8px; padding:7px 0; font-size:13px; border:1px solid #d0d4dc; border-radius:8px; background:#fff; cursor:pointer; color:#444;">＋ 在此添加锚点</button>
+    <div class="stats">
+      <span>已录步骤 <span class="badge" id="step-count">0</span></span>
+      <span id="duration">00:00</span>
+      <label class="mic-toggle"><input type="checkbox" id="mic-toggle" checked disabled> 🎤</label>
+    </div>
+    <div class="stats" style="margin-top:6px">
+      <label class="mic-toggle" style="color:#666"><input type="checkbox" id="dom-snapshot-toggle"> 每步 DOM 快照（体积大可关）</label>
+    </div>
+    <p id="error-msg"></p>
+    <p class="hint">开始录制后点「停止」＝停止并导出 zip（含回放器与证据包）。</p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Journey Replay · __JR_TITLE__</title>
+<!-- rrweb-player 回放器样式（Svelte scoped），必须内联以离线可用 -->
+<style>__JR_PLAYER_CSS__</style>
+<style>
+:root { --jr-bg:#f7f8fa; --jr-panel:#fff; --jr-border:#e6e8eb; --jr-text:#1f2329; --jr-dim:#8a919f; --jr-accent:#3572f0; }
+* { box-sizing:border-box; }
+html,body { margin:0; padding:0; height:100%; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:var(--jr-bg); color:var(--jr-text); }
+body { display:flex; flex-direction:column; height:100vh; }
+header { flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--jr-panel); border-bottom:1px solid var(--jr-border); }
+header h1 { font-size:15px; margin:0; font-weight:600; }
+header .meta { font-size:12px; color:var(--jr-dim); }
+main { flex:1 1 auto; display:flex; min-height:0; }
+#replayer-wrap { flex:1 1 auto; min-width:0; background:#2b2b2b; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+#replayer-wrap .rrweb-player { width:100%; height:100%; }
+aside { flex:0 0 340px; display:flex; flex-direction:column; border-left:1px solid var(--jr-border); background:var(--jr-panel); min-height:0; }
+aside .tabs { display:flex; border-bottom:1px solid var(--jr-border); }
+aside .tab { flex:1; text-align:center; padding:9px 0; font-size:13px; cursor:pointer; background:none; border:none; color:var(--jr-dim); }
+aside .tab.active { color:var(--jr-accent); box-shadow:inset 0 -2px 0 var(--jr-accent); font-weight:600; }
+#panel-body { flex:1 1 auto; overflow:auto; padding:10px; }
+.step-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:6px; cursor:pointer; font-size:12.5px; line-height:1.5; }
+.step-item:hover { background:#f0f2f5; }
+.step-item.active { background:#e8f0fe; }
+.step-item .num { flex:0 0 auto; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:var(--jr-dim); width:34px; }
+.step-item .nm { flex:1 1 auto; word-break:break-all; }
+.step-item .tabtag { flex:0 0 auto; font-size:10px; color:var(--jr-dim); border:1px solid var(--jr-border); border-radius:3px; padding:0 4px; }
+.net-card { border:1px solid var(--jr-border); border-radius:6px; margin-bottom:8px; overflow:hidden; }
+.net-card summary { cursor:pointer; padding:7px 10px; font-size:12px; font-family:ui-monospace,Menlo,monospace; display:flex; gap:8px; align-items:center; }
+.net-card summary .st { font-weight:600; }
+.net-card summary .url { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.net-card details[open] summary { border-bottom:1px solid var(--jr-border); background:#fafbfc; }
+.net-card .body { padding:8px 10px; font-size:11px; font-family:ui-monospace,Menlo,monospace; white-space:pre-wrap; word-break:break-all; color:#444; max-height:260px; overflow:auto; }
+.st-empty { color:var(--jr-dim); font-size:12px; padding:24px 12px; text-align:center; }
+.mode-toggle { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--jr-dim); margin-left:auto; }
+.mode-toggle button { padding:4px 10px; font-size:12px; border:1px solid var(--jr-border); border-radius:4px; background:#fff; cursor:pointer; }
+.mode-toggle button.active { background:var(--jr-accent); color:#fff; border-color:var(--jr-accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Journey Replay</h1>
+  <span class="meta" id="jr-meta"></span>
+  <div class="mode-toggle">
+    <button id="btn-all" class="active" title="按录制 tab 时间线合并">全部标签页</button>
+    <button id="btn-step" title="只看当前选中 Step 标签页">当前标签页</button>
+  </div>
+</header>
+<main>
+  <div id="replayer-wrap"><div id="replayer"></div></div>
+  <aside>
+    <div class="tabs">
+      <button class="tab active" data-panel="steps">步骤</button>
+      <button class="tab" data-panel="net">本步接口</button>
+    </div>
+    <div id="panel-body"></div>
+  </aside>
+</main>
+
+<!-- rrweb 核心（录制/回放） -->
+<script>__JR_RRWEB_JS__</script>
+<!-- rrweb-player（回放 UI，UMD 全局 rrwebPlayer） -->
+<script>__JR_PLAYER_JS__</script>
+<script>
+(function () {
+  'use strict';
+
+  // ===== 数据注入位（由 exporter 字符串替换）=====
+  var __JR_DATA__ = { events: __JR_EVENTS__, steps: __JR_STEPS__, net: __JR_NET__, audio: __JR_AUDIO__ };
+
+  var container = document.getElementById('replayer');
+  var panelBody = document.getElementById('panel-body');
+  var metaEl = document.getElementById('jr-meta');
+
+  var events = __JR_DATA__.events || [];
+  var steps = __JR_DATA__.steps || [];
+  var net = __JR_DATA__.net || [];
+  var audio = __JR_DATA__.audio || null;
+
+  // ===== 多 tab 回放模型 =====
+  // 限制：rrweb-player 单实例只能回放「单一录制会话」——一个 tab 即一个独立会话
+  // （各自含 Meta + FullSnapshot + 增量流）。多个 tab 的事件流不能拼进同一个 events 数组，
+  // 否则第二个 FullSnapshot 会与第一个冲突 → 回放黑屏（2026-08-31 S8 首验暴露）。
+  // 因此：按 __tabId 分组，每个 tab 一条独立时间线；回放器始终只放「当前选中」的那条流。
+  // 「全部标签页」= 回放首个 FullSnapshot 所在 tab（即最早打开的）的流；点步骤自动切到该步
+  // 所在 tab 的流。无缝跨 tab 连续回放列为 v0.1 已知限制。
+  var tabStreams = {}; // tabId -> events[]
+  var tabOrder = [];   // 按首个 FullSnapshot 的时间排序
+  events.forEach(function (e) {
+    var tid = e.__tabId;
+    if (tid == null) tid = -1;
+    if (!tabStreams[tid]) { tabStreams[tid] = []; tabOrder.push(tid); }
+    tabStreams[tid].push(e);
+  });
+  // 找每个 tab 流的 Meta(4)/FullSnapshot(2) 最早时间，用于排序与起点
+  function streamStart(evts) {
+    var t = Infinity;
+    (evts || []).forEach(function (e) {
+      if ((e.type === 2 || e.type === 4) && e.timestamp < t) t = e.timestamp;
+    });
+    return t === Infinity ? (evts && evts[0] ? evts[0].timestamp : 0) : t;
+  }
+  tabOrder.sort(function (a, b) { return streamStart(tabStreams[a]) - streamStart(tabStreams[b]); });
+  // 若事件无 __tabId（单 tab 旧数据），tabOrder = [-1]
+
+  function streamOf(tabId) {
+    var evts = tabStreams[(tabId == null ? -1 : tabId)] || tabStreams[tabOrder[0]] || [];
+    // 剥离 __tabId（rrweb 事件专用字段，回放器不需要，喂入前清除以免干扰事件结构）
+    return evts.map(function (e) {
+      if (e && e.__tabId !== undefined) { var c = Object.assign({}, e); delete c.__tabId; return c; }
+      return e;
+    });
+  }
+
+  var replayer = null;
+  var curStreamTab = null;    // 当前回放器加载的 tabId
+  var curStreamEvents = [];   // 当前回放的事件数组
+  var curStreamStart = 0;     // 当前流的起点时间戳
+
+  // 兼容 rrwebPlayer 两种导出形状（2026-08-31 黑屏二修）：
+  //   - 旧版：window.rrwebPlayer 本身就是构造函数
+  //   - 本 vendor（rrweb-player 2.1.1 UMD）：window.rrwebPlayer = { Player, default }，
+  //     需取 .default（=== .Player）才是 Svelte 组件构造函数
+  var PLAYER_CTOR =
+    (typeof rrwebPlayer === 'function') ? rrwebPlayer :
+    (rrwebPlayer && (rrwebPlayer.default || rrwebPlayer.Player || rrwebPlayer));
+  if (typeof PLAYER_CTOR !== 'function') PLAYER_CTOR = null;
+  if (PLAYER_CTOR) console.log('[JR player] rrwebPlayer ctor resolved:', PLAYER_CTOR.name || 'fn');
+  else console.error('[JR player] rrwebPlayer 不是可用构造函数（typeof=' + typeof rrwebPlayer + '）');
+
+  metaEl.textContent = (audio && audio.recorded ? '🎤 含口述轨 · ' : '') +
+    (events.length ? events.length + ' 个回放事件' : '无回放事件') +
+    ' · ' + (steps.length ? steps.length + ' 步' : '无步骤') +
+    (tabOrder.length > 1 ? ' · ' + tabOrder.length + ' 个标签页' : '');
+
+  // 用指定 tab 的事件流初始化回放器（每次切换重建）
+  function initReplayer(tabId) {
+    if (!PLAYER_CTOR) {
+      container.innerHTML = '<div style="color:#fff;padding:40px;text-align:center;font-size:14px;">回放器库未加载（rrwebPlayer 不可用）</div>';
+      return;
+    }
+    var evts = streamOf(tabId);
+    curStreamTab = tabId;
+    curStreamEvents = evts;
+    curStreamStart = streamStart(evts);
+    var el = container;
+    el.innerHTML = '';
+    if (!evts || !evts.length) {
+      el.innerHTML = '<div style="color:#fff;padding:40px;text-align:center;font-size:14px;">没有可回放的事件流</div>';
+      return;
+    }
+    replayer = new PLAYER_CTOR({
+      target: el,
+      props: { events: evts, width: 1024, height: 576, autoPlay: false, speed: 1, speedOption: [1,2,4,8], showController: true }
+    });
+    try {
+      if (replayer && typeof replayer.addEventListener === 'function') {
+        replayer.addEventListener('finish', function () { selectStep(null); });
+      }
+    } catch (e) { /* 事件绑定失败不阻塞 */ }
+  }
+
+  // 从当前流中找每个 journey-step 锚点的 timeOffset（相对该流起点）。
+  // 关联：按 timestamp 匹配 step.timestamp_ms（锚定与 customEvent 同一时刻产生）。
+  function findStepOffsets(evts, steps, streamStartTs) {
+    var anchors = [];
+    (evts || []).forEach(function (e) {
+      if (e && e.type === 5 && e.data && e.data.tag === 'journey-step') {
+        anchors.push(e.timestamp);
+      }
+    });
+    anchors.sort(function (a, b) { return a - b; });
+    var map = {}; // step.id → offset
+    (steps || []).forEach(function (s) {
+      var ts = s.timestamp_ms;
+      if (ts == null) return;
+      if (s.tab_id != null && s.tab_id !== curStreamTab) return; // 非当前流，忽略
+      var best = anchors[0] || 0;
+      var bestDiff = Infinity;
+      anchors.forEach(function (a) {
+        var d = Math.abs(a - ts);
+        if (d < bestDiff) { bestDiff = d; best = a; }
+      });
+      if (bestDiff < 60 * 1000) {
+        map[s.id] = Math.max(0, best - streamStartTs);
+      }
+    });
+    return map;
+  }
+  var stepOffsets = {};
+
+  function selectStep(id) {
+    curStepId = id; // 同步当前步（网络面板/当前标签页模式需要）
+    panelBody.querySelectorAll('.step-item').forEach(function (n) {
+      n.classList.toggle('active', String(n.dataset.id) === String(id));
+    });
+    if (id != null) {
+      // 找该 step 所属 tab；若与当前流不同，自动切到该 tab 的流再 seek（跨 tab 浏览）
+      var target = null;
+      for (var i = 0; i < steps.length; i++) if (steps[i].id === id) { target = steps[i]; break; }
+      var tid = target && target.tab_id;
+      if (tid != null && tid !== curStreamTab) {
+        initReplayer(tid);
+        stepOffsets = findStepOffsets(curStreamEvents, steps, curStreamStart);
+      }
+      var off = stepOffsets[id];
+      if (replayer && typeof replayer.goto === 'function' && off != null) replayer.goto(off, false);
+    }
+    if (curTab === 'net') renderNet(id);
+  }
+
+  function renderSteps() {
+    var html = '<div class="st-empty">加载中…</div>';
+    if (!steps.length) html = '<div class="st-empty">无步骤</div>';
+    else {
+      html = steps.map(function (s) {
+        var tag = s.tab_id != null ? '<span class="tabtag">tab' + s.tab_id + '</span>' : '';
+        return '<div class="step-item" data-id="' + s.id + '"><span class="num">' +
+          String(s.id).padStart(3, '0') + '</span><span class="nm">' + escapeHtml(s.name || '') + '</span>' + tag + '</div>';
+      }).join('');
+    }
+    panelBody.innerHTML = html;
+    panelBody.querySelectorAll('.step-item').forEach(function (n) {
+      n.addEventListener('click', function () { selectStep(Number(n.dataset.id)); });
+    });
+  }
+
+  function renderNet(stepId) {
+    var list = net.filter(function (c) { return c.stepId === stepId; });
+    if (!list.length) { panelBody.innerHTML = '<div class="st-empty">本步暂无接口调用</div>'; return; }
+    panelBody.innerHTML = list.map(function (c) {
+      var call = c.call || {};
+      var status = call.status || '-';
+      var cls = status >= 400 ? 'color:#c62828' : 'color:#2e7d32';
+      var body = call.body ? '<pre class="body">' + escapeHtml(call.body) + '</pre>' : '';
+      return '<details class="net-card"><summary><span class="st" style="' + cls + '">' +
+        escapeHtml(String(status)) + '</span><span>' + escapeHtml(call.method || '') + '</span><span class="url">' +
+        escapeHtml(call.url || '') + '</span><span style="color:var(--jr-dim)">' + Math.round(call.durationMs || 0) + 'ms</span></summary>' + body + '</details>';
+    }).join('');
+  }
+
+  function switchPanel(which) {
+    curTab = which;
+    panelBody.querySelectorAll('.tab').forEach(function (b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab[data-panel="' + which + '"]').forEach(function (b) { b.classList.add('active'); });
+    if (which === 'steps') renderSteps(); else renderNet(curStepId);
+  }
+
+  var curStepId = null;
+  var curTab = 'steps';
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // 标签页模式切换：全部 = 回放第一个 tab 的流；当前 = 回放选中 step 所在 tab 的流
+  var defaultTab = tabOrder[0] != null ? tabOrder[0] : -1;
+  // 步骤列表也带上 tab_id 以便区分（对 findStepOffsets 的 tab 过滤是必要前提）
+  steps = steps.map(function (s) { return s; });
+
+  document.getElementById('btn-all').addEventListener('click', function () {
+    initReplayer(defaultTab);
+    stepOffsets = findStepOffsets(curStreamEvents, steps, curStreamStart);
+    this.classList.add('active'); document.getElementById('btn-step').classList.remove('active');
+    renderSteps();
+  });
+  document.getElementById('btn-step').addEventListener('click', function () {
+    if (!curStepId) return;
+    var target = null;
+    for (var i = 0; i < steps.length; i++) if (steps[i].id === curStepId) { target = steps[i]; break; }
+    var tid = target && target.tab_id;
+    if (tid == null) tid = defaultTab;
+    initReplayer(tid);
+    stepOffsets = findStepOffsets(curStreamEvents, steps, curStreamStart);
+    this.classList.add('active'); document.getElementById('btn-all').classList.remove('active');
+    renderSteps();
+  });
+
+  // panel 切换
+  document.querySelectorAll('.tab[data-panel]').forEach(function (b) {
+    b.addEventListener('click', function () { switchPanel(b.dataset.panel); });
+  });
+
+  // 初始化：默认回放第一个 tab 的流
+  initReplayer(defaultTab);
+  stepOffsets = findStepOffsets(curStreamEvents, steps, curStreamStart);
+  renderSteps();
+  switchPanel('steps');
+
+  console.log('[JR player] ready: ' + events.length + ' events, ' + steps.length + ' steps, tabs=' + tabOrder.length);
+})();
+</script>
+</body>
+</html>

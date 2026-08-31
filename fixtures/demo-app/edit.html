@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>课件编辑页（新标签页场景）</title>
+<style>
+  body { font: 14px/1.6 -apple-system, "PingFang SC", sans-serif; margin: 0; color: #222; }
+  header { padding: 10px 20px; border-bottom: 1px solid #d8dce3; background: #f7f8fa; }
+  header h1 { font-size: 15px; margin: 0; }
+  header p { margin: 2px 0 0; color: #888; font-size: 12px; }
+  main { padding: 20px; max-width: 640px; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  button { padding: 7px 14px; border: 1px solid #d8dce3; border-radius: 6px; background: #fff; cursor: pointer; font-size: 13px; }
+  button:hover { border-color: #2f5af5; color: #2f5af5; }
+  .card { border: 1px dashed #d8dce3; border-radius: 6px; padding: 14px; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 8px; font-size: 13px; color: #666; }
+  input[type=text] { padding: 7px 10px; border: 1px solid #d8dce3; border-radius: 6px; width: 300px; }
+  ul { margin: 8px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📄 课件编辑页</h1>
+  <p>本页由「新标签页打开编辑页」按钮以 window.open 打开——用于验证 Journey Recorder 的标签页链（tab 应已被自动纳入录制）。</p>
+</header>
+<main>
+  <div class="toolbar">
+    <button id="btn-save">保存课件</button>
+    <button id="btn-slow">查询慢接口 (2s)</button>
+    <button id="btn-add">添加素材</button>
+  </div>
+  <div class="card">
+    <h3>课件标题</h3>
+    <input id="input-title" type="text" placeholder="输入课件标题">
+  </div>
+  <div class="card">
+    <h3>素材列表</h3>
+    <ul id="list">
+      <li>初始素材 A</li>
+      <li>初始素材 B</li>
+    </ul>
+  </div>
+</main>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var list = $('list');
+  var ts = function () { return new Date().toLocaleTimeString('zh-CN', { hour12: false }); };
+  var addItem = function (text) {
+    var li = document.createElement('li');
+    li.textContent = '[' + ts() + '] ' + text;
+    list.appendChild(li);
+  };
+  $('btn-save').addEventListener('click', function () {
+    addItem('课件已保存：' + ($('input-title').value || '（未命名）'));
+  });
+  $('btn-slow').addEventListener('click', function () {
+    var btn = this; btn.disabled = true; var old = btn.textContent; btn.textContent = '请求中…';
+    fetch('/slow-api?delay=2000')
+      .then(function (r) { return r.json(); })
+      .then(function (d) { addItem('慢接口返回: ' + d.data); })
+      .catch(function (e) { addItem('慢接口失败: ' + e.message); })
+      .finally(function () { btn.disabled = false; btn.textContent = old; });
+  });
+  var n = 1;
+  $('btn-add').addEventListener('click', function () { addItem('素材 #' + (n++)); });
+})();
+</script>
+</body>
+</html>

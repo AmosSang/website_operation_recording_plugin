@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Journey Recorder",
+  "version": "0.1.0",
+  "description": "交互旅程录制器：录下操作旅程 + 每步证据包，供 AI 反推文档与原型。纯本地运行，数据不出网。",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "scripting",
+    "storage",
+    "downloads",
+    "offscreen",
+    "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "icons": {
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background/orchestrator.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Journey Recorder"
+  },
+  "privacy_justification": "tabs + host_permissions 仅服务于录制：对「录制链中的标签页」注入采集脚本与视口截图（captureVisibleTab 限定 recorded tabId）；不读取浏览历史、不上传任何数据、卸载即清除全部缓冲数据。注入范围由代码约束为录制链成员，与 host 权限范围无关。"
+}

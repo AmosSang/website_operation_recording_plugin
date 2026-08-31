@@ -1,0 +1,41 @@
+/* Journey 夹具 - 外链样式表 app.css（S8 资源抓取测试用）
+   目的：验证插件能抓取外链 CSS 正文、解析相对 url() 引用、内联字体与图片。
+   相对路径相对本文件所在目录（css/），base URL 为页面 URL（/）。 */
+:root {
+  --app-brand: #0a7d4f;
+  --app-line: #e3e7ee;
+}
+
+/* 相对路径引用图片（../img/logo.png）→ 应被解析成绝对地址并下载/base64 */
+.app-header {
+  background: url("../img/logo.png") no-repeat left center;
+  background-size: 24px 24px;
+  padding-left: 34px;
+  color: var(--app-brand);
+  font-weight: 700;
+  border-bottom: 2px solid var(--app-brand);
+}
+
+/* 相对路径引用字体（../fonts/app-icon.woff2）→ 应内联 */
+.app-icon-face {
+  font-family: "AppIcon", sans-serif;
+}
+@font-face {
+  font-family: "AppIcon";
+  src: url("../fonts/app-icon.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 内联 SVG 背景（data: 已内联，不应被改写） */
+.app-inline-svg {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Ccircle cx='5' cy='5' r='4' fill='%230a7d4f'/%3E%3C/svg%3E") center no-repeat;
+}
+
+.app-card {
+  border: 1px solid var(--app-line);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 8px 0;
+}

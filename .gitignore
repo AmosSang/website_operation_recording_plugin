@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# 日志 / 临时
+*.log
+/tmp/
+nohup.out
+
+# 开发环境
+node_modules/
+
+# IDE
+.idea/
+.vscode/
